@@ -1,14 +1,13 @@
 ﻿using MediaBrowser.Controller.Entities.TV;
-using MediaBrowser.Plugins.Anime.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MediaBrowser.Plugins.Anime.Providers
+namespace Emby.Anime
 {
     public static class GenreHelper
     {
-        private static readonly Dictionary<string, string> GenreMappings = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> GenreMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             {"Action", "Action"},
             {"Advanture", "Adventure"},
@@ -204,38 +203,24 @@ namespace MediaBrowser.Plugins.Anime.Providers
             "Schlauer Protagonist",
         };
 
-        private static readonly Dictionary<string, string> IgnoreIfPresent = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> IgnoreIfPresent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             {"Psychological Thriller", "Thriller"}
         };
 
         public static void CleanupGenres(Series series)
         {
-            PluginConfiguration config = Plugin.Instance.Configuration;
+            series.Genres = RemoveRedundantGenres(series.Genres)
+                                       .Distinct(StringComparer.OrdinalIgnoreCase)
+                                       .ToArray();
 
-            if (config.TidyGenreList)
-            {
-                series.Genres = RemoveRedundantGenres(series.Genres)
-                                           .Distinct()
-                                           .ToArray();
+            TidyGenres(series);
 
-                TidyGenres(series);
-            }
+            series.Genres = series.Genres.Except(new[] { "Animation", "Anime" }).ToArray();
 
-            var max = config.MaxGenres;
-            if (config.AddAnimeGenre)
-            {
-                series.Genres = series.Genres.Except(new[] { "Animation", "Anime" }).ToArray();
+            series.Genres = series.Genres.ToArray();
 
-                max = Math.Max(max - 1, 0);
-            }
-
-            if (config.MaxGenres > 0)
-            {
-                series.Genres = series.Genres.Take(max).ToArray();
-            }
-
-            if (!series.Genres.Contains("Anime") && config.AddAnimeGenre)
+            if (!series.Genres.Contains("Anime", StringComparer.OrdinalIgnoreCase))
             {
                 series.Genres = series.Genres.Except(new[] { "Animation" }).ToArray();
 
@@ -247,8 +232,6 @@ namespace MediaBrowser.Plugins.Anime.Providers
 
         public static void TidyGenres(Series series)
         {
-            var config = Plugin.Instance.Configuration;
-
             var genres = new HashSet<string>();
             var tags = new HashSet<string>(series.Tags);
 
@@ -262,7 +245,7 @@ namespace MediaBrowser.Plugins.Anime.Providers
                     genres.Add(genre);
                 }
 
-                if (GenresAsTags.Contains(genre))
+                if (GenresAsTags.Contains(genre, StringComparer.OrdinalIgnoreCase))
                 {
                     genres.Add(genre);
                 }
