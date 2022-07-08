@@ -39,7 +39,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
         private readonly IApplicationPaths _appPaths;
         private readonly IHttpClient _httpClient;
 
-        private readonly Dictionary<string, PersonType> _typeMappings = new Dictionary<string, PersonType>
+        private readonly Dictionary<string, PersonType> _typeMappings = new Dictionary<string, PersonType>(StringComparer.OrdinalIgnoreCase)
         {
             {"Direction", PersonType.Director},
             {"Music", PersonType.Composer},
@@ -58,7 +58,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             {"Magical Bushidou Musashi Design", PersonType.Writer}
         };
 
-        private static readonly Dictionary<string, string> TagsToGenre = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> TagsToGenre = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             {"action", "Action"},
             {"adventure", "Adventure"},
@@ -232,7 +232,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
                                 if (!string.IsNullOrWhiteSpace(val))
                                 {
-                            
+
                                     if (DateTime.TryParse(val, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out DateTime date))
                                     {
                                         date = date.ToUniversalTime();
@@ -354,7 +354,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             {
                 if (reader.NodeType == XmlNodeType.Element && reader.Name == "episode")
                 {
-        
+
                     if (int.TryParse(reader.GetAttribute("id"), out int id) && IgnoredCategoryIds.Contains(id))
                         continue;
 
@@ -559,7 +559,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 {
                     if (reader.Name == "permanent")
                     {
-    
+
                         if (float.TryParse(
                             reader.ReadElementContentAsString(),
                             NumberStyles.AllowDecimalPoint,
@@ -623,7 +623,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             // todo find nationality of person and conditionally reverse name order
             PersonType mappedType;
 
-            if (!_typeMappings.TryGetValue(type, out  mappedType))
+            if (!_typeMappings.TryGetValue(type, out mappedType))
             {
                 if (!Enum.TryParse(type, true, out mappedType))
                 {
@@ -672,7 +672,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             };
 
             await RequestLimiter.Tick(cancellationToken);
-            await Task.Run(() => Thread.Sleep(Plugin.Instance.Configuration.AniDB_wait_time));
+            await Task.Delay(Plugin.Instance.Configuration.AniDB_wait_time, cancellationToken).ConfigureAwait(false);
             using (var stream = await httpClient.Get(requestOptions).ConfigureAwait(false))
             using (var unzipped = new GZipStream(stream, CompressionMode.Decompress))
             using (var reader = new StreamReader(unzipped, Encoding.UTF8, true))

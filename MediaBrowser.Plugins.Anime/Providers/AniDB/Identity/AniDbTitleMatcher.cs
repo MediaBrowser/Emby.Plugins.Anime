@@ -165,7 +165,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Identity
             try
             {
                 await _downloader.Load(cancellationToken).ConfigureAwait(false);
-                await ReadTitlesFile().ConfigureAwait(false);
+                ReadTitlesFile();
             }
             catch (Exception e)
             {
@@ -173,66 +173,63 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Identity
             }
         }
 
-        private Task ReadTitlesFile()
+        private void ReadTitlesFile()
         {
-            return Task.Run(() =>
+            _logger.Debug("Loading AniDB titles");
+
+            var titlesFile = _downloader.TitlesFilePath;
+
+            var settings = new XmlReaderSettings
             {
-                _logger.Debug("Loading AniDB titles");
+                CheckCharacters = false,
+                IgnoreProcessingInstructions = true,
+                IgnoreComments = true,
+                ValidationType = ValidationType.None
+            };
 
-                var titlesFile = _downloader.TitlesFilePath;
+            using (var stream = new StreamReader(titlesFile, Encoding.UTF8))
+            using (var reader = XmlReader.Create(stream, settings))
+            {
+                string aid = null;
 
-                var settings = new XmlReaderSettings
+                while (reader.Read())
                 {
-                    CheckCharacters = false,
-                    IgnoreProcessingInstructions = true,
-                    IgnoreComments = true,
-                    ValidationType = ValidationType.None
-                };
-
-                using (var stream = new StreamReader(titlesFile, Encoding.UTF8))
-                using (var reader = XmlReader.Create(stream, settings))
-                {
-                    string aid = null;
-
-                    while (reader.Read())
+                    if (reader.NodeType == XmlNodeType.Element)
                     {
-                        if (reader.NodeType == XmlNodeType.Element)
+                        switch (reader.Name)
                         {
-                            switch (reader.Name)
-                            {
-                                case "anime":
-                                    reader.MoveToAttribute("aid");
-                                    aid = reader.Value;
-                                    break;
+                            case "anime":
+                                reader.MoveToAttribute("aid");
+                                aid = reader.Value;
+                                break;
 
-                                case "title":
-                                    var title = reader.ReadElementContentAsString();
-                                    if (!string.IsNullOrEmpty(aid) && !string.IsNullOrEmpty(title))
+                            case "title":
+                                var title = reader.ReadElementContentAsString();
+                                if (!string.IsNullOrEmpty(aid) && !string.IsNullOrEmpty(title))
+                                {
+                                    var type = ParseType(reader.GetAttribute("type"));
+
+                                    if (!_titles.TryGetValue(title, out TitleInfo currentTitleInfo) || (int)currentTitleInfo.Type < (int)type)
                                     {
-                                        var type = ParseType(reader.GetAttribute("type"));
-
-                                        if (!_titles.TryGetValue(title, out TitleInfo currentTitleInfo) || (int)currentTitleInfo.Type < (int)type)
-                                        {
-                                            _titles[title] = new TitleInfo { AniDbId = aid, Type = type, Title = title };
-                                        }
+                                        _titles[title] = new TitleInfo { AniDbId = aid, Type = type, Title = title };
                                     }
-                                    break;
-                            }
+                                }
+                                break;
                         }
                     }
                 }
+            }
 
-                var comparable = (from pair in _titles
-                                  let comp = GetComparableName(pair.Key)
-                                  where !_titles.ContainsKey(comp)
-                                  select new { Title = comp, Id = pair.Value })
-                                 .ToArray();
+            var comparable = (from pair in _titles
+                              let comp = GetComparableName(pair.Key)
+                              where !_titles.ContainsKey(comp)
+                              select new { Title = comp, Id = pair.Value })
+                             .ToArray();
 
-                foreach (var pair in comparable)
-                {
-                    _titles[pair.Title] = pair.Id;
-                }
-            });
+            foreach (var pair in comparable)
+            {
+                _titles[pair.Title] = pair.Id;
+            }
         }
 
         private TitleType ParseType(string type)
