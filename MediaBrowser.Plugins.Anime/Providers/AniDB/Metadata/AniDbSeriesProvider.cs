@@ -20,6 +20,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
+using Emby.Anime;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
