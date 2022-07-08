@@ -82,7 +82,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Identity
             var client = new WebClient();
             client.Headers.Add("User-Agent", "Emby/4.0");
             await AniDbSeriesProvider.RequestLimiter.Tick(cancellationToken);
-            await Task.Run(() => Thread.Sleep(Plugin.Instance.Configuration.AniDB_wait_time));
+            await Task.Delay(Plugin.Instance.Configuration.AniDB_wait_time, cancellationToken).ConfigureAwait(false);
             using (var stream = await client.OpenReadTaskAsync(TitlesUrl))
             using (var writer = File.Open(titlesFile, FileMode.Create, FileAccess.Write))
             {
@@ -101,7 +101,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Identity
             var client = new WebClient();
             client.Headers.Add("User-Agent", "Emby/4.0");
             await AniDbSeriesProvider.RequestLimiter.Tick(cancellationToken);
-            await Task.Run(() => Thread.Sleep(Plugin.Instance.Configuration.AniDB_wait_time));
+            await Task.Delay(Plugin.Instance.Configuration.AniDB_wait_time, cancellationToken).ConfigureAwait(false);
             using (var stream = await client.OpenReadTaskAsync(TitlesUrl))
             using (var writer = File.Open(titlesFile, FileMode.Create, FileAccess.Write))
             {
