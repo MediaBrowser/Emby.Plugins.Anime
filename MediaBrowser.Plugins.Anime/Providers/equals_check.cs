@@ -1,5 +1,4 @@
 ﻿using MediaBrowser.Model.Logging;
-using MediaBrowser.Plugins.Anime.Providers.AniDB.Identity;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,16 +7,25 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using MediaBrowser.Model.Extensions;
 
-namespace MediaBrowser.Plugins.Anime.Providers
+namespace Emby.Anime
 {
-    internal class Equals_check
+    internal static class Equals_check
     {
-        public readonly ILogger _logger;
-
-        public Equals_check(ILogger logger)
+        private static string ReplaceSafe(this string str, string find, string replace)
         {
-            _logger = logger;
+            return str.ReplaceSafe(find, replace, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ReplaceSafe(this string str, string find, string replace, StringComparison comparison)
+        {
+            if (string.IsNullOrEmpty(find))
+            {
+                return str;
+            }
+
+            return str.Replace(find, replace, comparison);
         }
 
         /// <summary>
@@ -25,93 +33,26 @@ namespace MediaBrowser.Plugins.Anime.Providers
         /// </summary>
         /// <param name="a"></param>
         /// <returns></returns>
-        public async static Task<string> Clear_name(string a, CancellationToken cancellationToken)
+        public static string Clear_name(string a)
         {
-            try
-            {
-                a = a.Trim().Replace(await One_line_regex(new Regex(@"(?s) \(.*?\)"), a.Trim(), cancellationToken, 0), "");
-            }
-            catch (Exception)
-            { }
-            a = a.Replace(".", " ");
-            a = a.Replace("-", " ");
-            a = a.Replace("`", "");
-            a = a.Replace("'", "");
-            a = a.Replace("&", "and");
-            a = a.Replace("(", "");
-            a = a.Replace(")", "");
-            try
-            {
-                a = a.Replace(await One_line_regex(new Regex(@"(?s)(S[0-9]+)"), a.Trim(), cancellationToken), await One_line_regex(new Regex(@"(?s)S([0-9]+)"), a.Trim(), cancellationToken));
-            }
-            catch (Exception)
-            {
-            }
+            a = a.Trim().ReplaceSafe(One_line_regex(new Regex(@"(?s) \(.*?\)"), a.Trim(), 0), "", StringComparison.OrdinalIgnoreCase);
+
+            a = a.Replace(".", " ", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("-", " ", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("`", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("'", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("&", "and", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("(", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace(")", "", StringComparison.OrdinalIgnoreCase);
+
+            a = a.ReplaceSafe(One_line_regex(new Regex(@"(?s)(S[0-9]+)"), a.Trim()), One_line_regex(new Regex(@"(?s)S([0-9]+)"), a.Trim()), StringComparison.OrdinalIgnoreCase);
+
             return a;
         }
-
-        /// <summary>
-        /// Clear name heavy.
-        /// Example: Text & Text to Text and Text
-        /// </summary>
-        /// <param name="a"></param>
-        /// <returns></returns>
-        public async static Task<string> Clear_name_step2(string a, CancellationToken cancellationToken)
-        {
-            if(a.Contains("Gekijyouban"))
-               a= (a.Replace("Gekijyouban", "") + " Movie").Trim();
-            if (a.Contains("gekijyouban"))
-               a = (a.Replace("gekijyouban", "") + " Movie").Trim();
-            try
-            {
-                a = a.Trim().Replace(await One_line_regex(new Regex(@"(?s) \(.*?\)"), a.Trim(), cancellationToken, 0), "");
-            }
-            catch (Exception)
-            { }
-            a = a.Replace(".", " ");
-            a = a.Replace("-", " ");
-            a = a.Replace("`", "");
-            a = a.Replace("'", "");
-            a = a.Replace("&", "and");
-            a = a.Replace(":", "");
-            a = a.Replace("␣", "");
-            a = a.Replace("2wei", "zwei");
-            a = a.Replace("3rei", "drei");
-            a = a.Replace("4ier", "vier");
-            return a;
-        }
-
-        /// <summary>
-        /// If a and b match it return true
-        /// </summary>
-        /// <param name="a"></param>
-        /// <param name="b"></param>
-        /// <returns></returns>
-        public async static Task<bool> Compare_strings(string a, string b, CancellationToken cancellationToken)
-        {
-            if (!string.IsNullOrEmpty(a) && !string.IsNullOrEmpty(b))
-            {
-                if (await Simple_compare(a, b, cancellationToken))
-                    return true;
-                if (await Fast_xml_search(a, b, cancellationToken))
-                    return true;
-
-                return false;
-            }
-            return false;
-        }
-    
-        /// <summary>
-        /// Cut p(%) away from the string
-        /// </summary>
-        /// <param name="string_"></param>
-        /// <param name="min_lenght"></param>
-        /// <param name="p"></param>
-        /// <returns></returns>
-        public async static Task<string> Half_string(string string_, CancellationToken cancellationToken, int min_lenght = 0, int p = 50)
+        public static string Half_string(string string_, int min_lenght = 0, int p = 50)
         {
             decimal length = 0;
-            if (await Task.Run(() => ((int)((decimal)string_.Length - (((decimal)string_.Length / 100m) * (decimal)p)) > min_lenght), cancellationToken))
+            if (((int)((decimal)string_.Length - (((decimal)string_.Length / 100m) * (decimal)p)) > min_lenght))
             {
                 length = (decimal)string_.Length - (((decimal)string_.Length / 100m) * (decimal)p);
             }
@@ -130,6 +71,52 @@ namespace MediaBrowser.Plugins.Anime.Providers
         }
 
         /// <summary>
+        /// Clear name heavy.
+        /// Example: Text & Text to Text and Text
+        /// </summary>
+        /// <param name="a"></param>
+        /// <returns></returns>
+        public static string Clear_name_step2(string a)
+        {
+            if (a.Contains("Gekijyouban"))
+                a = (a.Replace("Gekijyouban", "", StringComparison.OrdinalIgnoreCase) + " Movie").Trim();
+            if (a.Contains("gekijyouban"))
+                a = (a.Replace("gekijyouban", "", StringComparison.OrdinalIgnoreCase) + " Movie").Trim();
+
+            a = a.Trim().ReplaceSafe(One_line_regex(new Regex(@"(?s) \(.*?\)"), a.Trim(), 0), "", StringComparison.OrdinalIgnoreCase);
+
+            a = a.Replace(".", " ", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("-", " ", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("`", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("'", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("&", "and", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace(":", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("␣", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("2wei", "zwei", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("3rei", "drei", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace("4ier", "vier", StringComparison.OrdinalIgnoreCase);
+            return a;
+        }
+
+        /// <summary>
+        /// If a and b match it return true
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static bool Compare_strings(string a, string b)
+        {
+            if (!string.IsNullOrEmpty(a) && !string.IsNullOrEmpty(b))
+            {
+                if (Simple_compare(a, b))
+                    return true;
+
+                return false;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// simple regex
         /// </summary>
         /// <param name="regex"></param>
@@ -137,15 +124,20 @@ namespace MediaBrowser.Plugins.Anime.Providers
         /// <param name="group"></param>
         /// <param name="match_int"></param>
         /// <returns></returns>
-        public async static Task<string> One_line_regex(Regex regex, string match, CancellationToken cancellationToken, int group = 1, int match_int = 0)
+        public static string One_line_regex(Regex regex, string match, int group = 1, int match_int = 0)
         {
-            Regex _regex = regex;
             int x = 0;
-            foreach (Match _match in regex.Matches(match))
+            var matches = regex.Matches(match);
+
+            foreach (Match _match in matches)
             {
+                if (x > match_int)
+                {
+                    break;
+                }
                 if (x == match_int)
                 {
-                    return await Task.Run(() => _match.Groups[group].Value.ToString(), cancellationToken);
+                    return _match.Groups[group].Value.ToString();
                 }
                 x++;
             }
@@ -153,161 +145,10 @@ namespace MediaBrowser.Plugins.Anime.Providers
         }
 
         /// <summary>
-        ///Return true if a and b match return false if not
-        ///It loads the titles.xml on exceptions
-        /// </summary>
-        private async static Task<bool> Fast_xml_search(string a, string b, CancellationToken cancellationToken, bool return_AniDBid = false, bool retry = false)
-        {
-            //Get AID aid=\"([s\S].*)\">
-            try
-            {
-                List<string> pre_aid = new List<string>();
-                string xml = File.ReadAllText(Get_anidb_xml_file());
-                int x = 0;
-                string s1 = "-";
-                string s2 = "-";
-                while (!string.IsNullOrEmpty(s1) && !string.IsNullOrEmpty(s2))
-                {
-                    s1 = await One_line_regex(new Regex("<anime aid=" + "\"" + @"(\d+)" + "\"" + @">(?>[^<>]+|<(?!\/anime>)[^<>]*>)*?" + Regex.Escape(await Half_string(a, cancellationToken,4))), xml, cancellationToken,1, x);
-                    if (s1 != "")
-                    {
-                        pre_aid.Add(s1);
-                    }
-                    s2 = await One_line_regex(new Regex("<anime aid=" + "\"" + @"(\d+)" + "\"" + @">(?>[^<>]+|<(?!\/anime>)[^<>]*>)*?" + Regex.Escape(await Half_string(b, cancellationToken,4))), xml, cancellationToken, 1, x);
-                    if (s1 != "")
-                    {
-                        if (s1 != s2)
-                        {
-                            pre_aid.Add(s2);
-                        }
-                    }
-                    x++;
-                }
-                foreach (string _aid in pre_aid)
-                {
-                    XElement doc = await Task.Run(async () => XElement.Parse("<?xml version=\"1.0\" encoding=\"UTF - 8\"?>" + "<animetitles>" + await One_line_regex(await Task.Run(() => new Regex("<anime aid=\"" + _aid + "\">" + @"(?s)(.*?)<\/anime>"), cancellationToken), xml, cancellationToken, 0) + "</animetitles>"), cancellationToken);
-                    var a_ = from page in doc.Elements("anime")
-                             where _aid == page.Attribute("aid").Value
-                             select page;
-                    if (await Simple_compare( a_.Elements("title"), b, cancellationToken) && await Simple_compare(a_.Elements("title"), a, cancellationToken))
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            catch (Exception)
-            {
-                if (retry)
-                {
-                    return false;
-                }
-                else
-                {
-                    await Task.Run(() => AniDbTitleDownloader.Load_static(cancellationToken), cancellationToken);
-                    return await Fast_xml_search(a, b, cancellationToken, false, true);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Return the AniDB ID if a and b match
-        /// </summary>
-        public async static Task<string> Fast_xml_search(string a, string b, CancellationToken cancellationToken, bool return_AniDBid, int x_ = 0)
-        {
-            //Get AID aid=\"([s\S].*)\">
-            try
-            {
-                List<string> pre_aid = new List<string>();
-                string xml = File.ReadAllText(Get_anidb_xml_file());
-                int x = 0;
-                string s1 = "-";
-                string s2 = "-";
-                while (!string.IsNullOrEmpty(s1) && !string.IsNullOrEmpty(s2))
-                {
-                    s1 = await One_line_regex(new Regex("<anime aid=" + "\"" + @"(\d+)" + "\"" + @">(?>[^<>]+|<(?!\/anime>)[^<>]*>)*?" + Regex.Escape(await Half_string(a, cancellationToken, 4))), xml, cancellationToken, 1, x);
-                    if (s1 != "")
-                    {
-                        pre_aid.Add(s1);
-                    }
-                    s2 = await One_line_regex(new Regex("<anime aid=" + "\"" + @"(\d+)" + "\"" + @">(?>[^<>]+|<(?!\/anime>)[^<>]*>)*?" + Regex.Escape(await Half_string(b, cancellationToken, 4))), xml, cancellationToken, 1, x);
-                    if (s1 != "")
-                    {
-                        if (s1 != s2)
-                        {
-                            pre_aid.Add(s2);
-                        }
-                    }
-                    x++;
-                }
-                if (pre_aid.Count == 1)
-                {
-                    if (!string.IsNullOrEmpty(pre_aid[0]))
-                    {
-                        return pre_aid[0];
-                    }
-                }
-                int biggestcount = 0;
-                string cache_aid="";
-                if (a == b)
-                {
-                    foreach (string _aid in pre_aid)
-                    {
-                       string result= await One_line_regex(new Regex(@"<anime aid=" + "\"" + _aid + "\"" + @"((?s).*?)<\/anime>"), xml, cancellationToken);
-                       int count = (result.Length - result.Replace(a, "").Length)/a.Length;
-                       if(biggestcount< count)
-                       {
-                            biggestcount = count;
-                            cache_aid =_aid;
-                       }
-                    }
-                    if (!string.IsNullOrEmpty(cache_aid))
-                    {
-                        return cache_aid;
-                    }
-                }
-                foreach (string _aid in pre_aid)
-                {
-                    XElement doc = XElement.Parse("<?xml version=\"1.0\" encoding=\"UTF - 8\"?>" + "<animetitles>" +await One_line_regex(new Regex("<anime aid=\"" + _aid + "\">" + @"(?s)(.*?)<\/anime>"), xml, cancellationToken,0, 0) + "</animetitles>");
-                    var a_ = from page in doc.Elements("anime")
-                             where _aid == page.Attribute("aid").Value
-                             select page;
-                    
-                    if (await Simple_compare(a_.Elements("title"), b, cancellationToken) && await Simple_compare(a_.Elements("title"), a, cancellationToken))
-                    {
-                        return _aid;
-                    }
-                }
-                return "";
-            }
-            catch (Exception)
-            {
-                if (x_ == 1)
-                {
-                    return "";
-                }
-                else
-                {
-                    await Task.Run(() => AniDbTitleDownloader.Load_static(cancellationToken), cancellationToken);
-                    return await Fast_xml_search(a, b, cancellationToken, true, 1);
-                }
-            }
-        }
-
-        /// <summary>
-        /// get file Path from anidb xml file
-        /// </summary>
-        /// <returns></returns>
-        private static string Get_anidb_xml_file()
-        {
-            return AniDbTitleDownloader.TitlesFilePath_;
-        }
-
-        /// <summary>
         /// Compare 2 Strings, and it just works
         /// SeriesA S2 == SeriesA Second Season | True;
         /// </summary>
-        private async static Task<bool> Simple_compare(string a, string b, CancellationToken cancellationToken, bool fastmode = false)
+        public static bool Simple_compare(string a, string b, bool fastmode = false)
         {
             if (fastmode)
             {
@@ -320,9 +161,9 @@ namespace MediaBrowser.Plugins.Anime.Providers
                 }
             }
 
-            if (await Core_compare(a, b, cancellationToken))
+            if (Core_compare(a, b))
                 return true;
-            if (await Core_compare(b, a, cancellationToken))
+            if (Core_compare(b, a))
                 return true;
 
             return false;
@@ -331,114 +172,60 @@ namespace MediaBrowser.Plugins.Anime.Providers
         /// <summary>
         /// Compare 2 Strings, and it just works
         /// </summary>
-        private async static Task<bool> Core_compare(string a, string b, CancellationToken cancellationToken)
+        private static bool Core_compare(string a, string b)
         {
-            if (a == b)
+            if (string.Equals(a, b, StringComparison.OrdinalIgnoreCase))
                 return true;
 
-            a = a.ToLower().Replace(" ", "").Trim().Replace(".", "");
-            b = b.ToLower().Replace(" ", "").Trim().Replace(".", "");
+            a = a.ToLower().Replace(" ", "", StringComparison.OrdinalIgnoreCase).Trim().Replace(".", "", StringComparison.OrdinalIgnoreCase);
+            b = b.ToLower().Replace(" ", "", StringComparison.OrdinalIgnoreCase).Trim().Replace(".", "", StringComparison.OrdinalIgnoreCase);
 
-            if (await Clear_name(a, cancellationToken) == await Clear_name(b, cancellationToken))
+            if (string.Equals(Clear_name(a), Clear_name(b), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (await Clear_name_step2(a, cancellationToken) == await Clear_name_step2(b, cancellationToken))
+            if (string.Equals(Clear_name_step2(a), Clear_name_step2(b), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (a.Replace("-", " ") == b.Replace("-", " "))
+            if (string.Equals(a.Replace("-", " ", StringComparison.OrdinalIgnoreCase), b.Replace("-", " ", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (a.Replace(" 2", ":secondseason") == b.Replace(" 2", ":secondseason"))
+            if (string.Equals(a.Replace(" 2", ":secondseason", StringComparison.OrdinalIgnoreCase), b.Replace(" 2", ":secondseason", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (a.Replace("2", "secondseason") == b.Replace("2", "secondseason"))
+            if (string.Equals(a.Replace("2", "secondseason", StringComparison.OrdinalIgnoreCase), b.Replace("2", "secondseason", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (await Convert_symbols_too_numbers(a, "I", cancellationToken) == await Convert_symbols_too_numbers(b, "I", cancellationToken))
+            if (string.Equals(Convert_symbols_too_numbers(a, "I"), Convert_symbols_too_numbers(b, "I"), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (await Convert_symbols_too_numbers(a, "!", cancellationToken) == await Convert_symbols_too_numbers(b, "!", cancellationToken))
+            if (string.Equals(Convert_symbols_too_numbers(a, "!"), Convert_symbols_too_numbers(b, "!"), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (a.Replace("ndseason", "") == b.Replace("ndseason", ""))
+            if (string.Equals(a.Replace("ndseason", "", StringComparison.OrdinalIgnoreCase), b.Replace("ndseason", "", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (a.Replace("ndseason", "") == b)
+            if (string.Equals(a.Replace("ndseason", "", StringComparison.OrdinalIgnoreCase), b, StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 2) + await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 3) == await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), b, cancellationToken, 2) + await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), b, cancellationToken, 3))
-                if (!string.IsNullOrEmpty(await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 2) + await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 3)))
+            if (string.Equals(One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 2) + One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 3), One_line_regex(new Regex(@"((.*)s([0 - 9]))"), b, 2) + One_line_regex(new Regex(@"((.*)s([0 - 9]))"), b, 3), StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 2) + One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 3)))
                     return true;
-            if (await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 2) + await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 3) == b)
-                if (!string.IsNullOrEmpty(await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 2) + await One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, cancellationToken, 3)))
+            if (string.Equals(One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 2) + One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 3), b, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 2) + One_line_regex(new Regex(@"((.*)s([0 - 9]))"), a, 3)))
                     return true;
-            if (a.Replace("rdseason", "") == b.Replace("rdseason", ""))
+            if (string.Equals(a.Replace("rdseason", "", StringComparison.OrdinalIgnoreCase), b.Replace("rdseason", "", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (a.Replace("rdseason", "") == b)
+            if (string.Equals(a.Replace("rdseason", "", StringComparison.OrdinalIgnoreCase), b, StringComparison.OrdinalIgnoreCase))
                 return true;
-            try
-            {
-                if (a.Replace("2", "secondseason").Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), a, cancellationToken, 0), "") == b.Replace("2", "secondseason").Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), b, cancellationToken, 0), ""))
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (a.Replace("2", "secondseason").Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), a, cancellationToken, 0), "") == b)
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (a.Replace(" 2", ":secondseason").Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), a, cancellationToken, 0), "") == b.Replace(" 2", ":secondseason").Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), b, cancellationToken, 0), ""))
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (a.Replace(" 2", ":secondseason").Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), a, cancellationToken, 0), "") == b)
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (a.Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), a, cancellationToken, 0), "") == b.Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), b, cancellationToken, 0), ""))
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (a.Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), a, cancellationToken, 0), "") == b)
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (b.Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), b, cancellationToken, 0), "").Replace("  2", ": second Season") == a)
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (a.Replace(" 2ndseason", ":secondseason") + " vs " + b == a)
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-            try
-            {
-                if (a.Replace(await One_line_regex(new Regex(@"(?s)\(.*?\)"), a, cancellationToken, 0), "").Replace("  2", ":secondseason") == b)
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
+            if (string.Equals(a.Replace("2", "secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), a, 0), ""), b.Replace("2", "secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), b, 0), ""), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(a.Replace("2", "secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(a.Replace(" 2", ":secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), a, 0), ""), b.Replace(" 2", ":secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), b, 0), ""), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(a.Replace(" 2", ":secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(a.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), a, 0), ""), b.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), b, 0), ""), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(a.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(b.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), b, 0), "").Replace("  2", ": second Season"), a, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(a.Replace(" 2ndseason", ":secondseason", StringComparison.OrdinalIgnoreCase) + " vs " + b, a, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(a.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)"), a, 0), "").Replace("  2", ":secondseason"), b, StringComparison.OrdinalIgnoreCase))
+                return true;
             return false;
         }
 
@@ -448,100 +235,31 @@ namespace MediaBrowser.Plugins.Anime.Providers
         /// <param name="input"></param>
         /// <param name="symbol"></param>
         /// <returns></returns>
-        private async static Task<string> Convert_symbols_too_numbers(string input, string symbol, CancellationToken cancellationToken)
+        private static string Convert_symbols_too_numbers(string input, string symbol)
         {
-            try
+            string regex_c = "_";
+            int x = 0;
+            int highest_number = 0;
+            while (!string.IsNullOrEmpty(regex_c) && x < 100)
             {
-                string regex_c = "_";
-                int x = 0;
-                int highest_number = 0;
-                while (!string.IsNullOrEmpty(regex_c))
-                {
-                    regex_c = (await One_line_regex(new Regex(@"(" + symbol + @"+)"), input.ToLower().Trim(), cancellationToken, 1, x)).Trim();
-                    if (highest_number < regex_c.Count())
-                        highest_number = regex_c.Count();
-                    x++;
-                }
-                x = 0;
-                string output = "";
-                while (x != highest_number)
-                {
-                    output = output + symbol;
-                    x++;
-                }
-                output = input.Replace(output, highest_number.ToString());
-                if (string.IsNullOrEmpty(output))
-                {
-                    output = input;
-                }
-                return output;
+                regex_c = (One_line_regex(new Regex(@"(" + symbol + @"+)"), input.ToLower().Trim(), 1, x)).Trim();
+                if (highest_number < regex_c.Count())
+                    highest_number = regex_c.Count();
+                x++;
             }
-            catch (Exception)
+            x = 0;
+            string output = "";
+            while (x < highest_number)
             {
-                return input;
+                output = output + symbol;
+                x++;
             }
-        }
-
-        /// <summary>
-        /// Simple Compare a XElemtent with a string
-        /// </summary>
-        /// <param name="a_"></param>
-        /// <param name="b"></param>
-        /// <returns></returns>
-        private async static Task<bool> Simple_compare(IEnumerable<XElement> a_, string b, CancellationToken cancellationToken)
-        {
-            bool ignore_date = true;
-            string a_date = "";
-            string b_date = "";
-
-            string b_date_ = await One_line_regex(new Regex(@"([0-9][0-9][0-9][0-9])"), b, cancellationToken);
-            if (!string.IsNullOrEmpty(b_date_))
+            output = input.ReplaceSafe(output, highest_number.ToString(), StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(output))
             {
-                b_date = b_date_;
+                output = input;
             }
-            if (!string.IsNullOrEmpty(b_date))
-            {
-                foreach (XElement a in a_)
-                {
-                    if (ignore_date)
-                    {
-                        string a_date_ = await One_line_regex(new Regex(@"([0-9][0-9][0-9][0-9])"), a.Value, cancellationToken);
-                        if (!string.IsNullOrEmpty(a_date_))
-                        {
-                            a_date = a_date_;
-                            ignore_date = false;
-                        }
-                    }
-                }
-            }
-            if (!ignore_date)
-            {
-                if (a_date.Trim()==b_date.Trim())
-                {
-                    foreach (XElement a in a_)
-                    {
-                            if (await Simple_compare(a.Value, b, cancellationToken, true))
-                                return true;
-                    }
-                }
-                else
-                {
-                    return false;
-                }
-                return false;
-            }
-            else
-            {
-                foreach (XElement a in a_)
-                {
-                    if (ignore_date)
-                    {
-                        if (await Simple_compare(a.Value, b, cancellationToken, true))
-                            return true;
-                    }
-                }
-                return false;
-            }
+            return output;
         }
     }
 }

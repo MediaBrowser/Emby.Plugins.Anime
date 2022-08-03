@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Logging;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
@@ -15,9 +16,9 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
     {
         private readonly AniDbSeriesProvider _seriesProvider;
 
-        public AniDbSeasonProvider(IHttpClient httpClient, IApplicationPaths appPaths)
+        public AniDbSeasonProvider(IHttpClient httpClient, IApplicationPaths appPaths, ILogger logger)
         {
-            _seriesProvider = new AniDbSeriesProvider(appPaths, httpClient);
+            _seriesProvider = new AniDbSeriesProvider(appPaths, httpClient, logger);
         }
 
         public async Task<MetadataResult<Season>> GetMetadata(SeasonInfo info, CancellationToken cancellationToken)

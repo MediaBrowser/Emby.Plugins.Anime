@@ -28,18 +28,8 @@ namespace MediaBrowser.Plugins.Anime.Configuration
     public class PluginConfiguration
         : BasePluginConfiguration
     {
-        public TitlePreferenceType TitlePreference { get; set; }
-        public bool TidyGenreList { get; set; }
-        public int MaxGenres { get; set; }
-        public bool AddAnimeGenre { get; set; }
-        public int AniDB_wait_time { get; set; }
-        public PluginConfiguration()
-        {
-            TitlePreference = TitlePreferenceType.Localized;
-            TidyGenreList = true;
-            MaxGenres = 5;
-            AddAnimeGenre = true;
-            AniDB_wait_time = 0;
-        }
+        public TitlePreferenceType TitlePreference { get; set; } = TitlePreferenceType.Localized;
+        public bool TidyGenreList { get; set; } = true;
+        public int AniDB_wait_time { get; set; } = 0;
     }
 }
