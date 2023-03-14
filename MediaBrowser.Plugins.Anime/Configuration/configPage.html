@@ -1,84 +1,36 @@
-﻿<!DOCTYPE html>
-<html>
-<head>
-    <title>Anime Configuration</title>
-</head>
-<body>
-    <div data-role="page" class="page type-interior pluginConfigurationPage animeConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox,emby-linkbutton">
-        <div data-role="content">
-            <div class="content-primary">
+﻿<div is="emby-scroller" class="view flex flex-direction-column scrollFrameY flex-grow" data-horizontal="false" data-forcescrollbar="true" data-centerfocus="true" data-bindheader="true" data-controller="__plugin/animejs" data-title="AniDB">
+    <div class="scrollSlider flex-grow flex-direction-column padded-left padded-left-page padded-right padded-top-page padded-bottom-page">
 
-                <form class="animeConfigurationForm">
-
-                    <div class="selectContainer">
-                        <select is="emby-select" id="titleLanguage" name="titleLanguage" label="Title Language:">
-                            <option id="optLanguageLocalized" value="Localized">Localized</option>
-                            <option id="optLanguageRomaji" value="JapaneseRomaji">Romaji</option>
-                            <option id="optLanguageJapanese" value="Japanese">Japanese</option>
-                            <option id="optLanguageGerman" value="German">German</option>
-                            <option id="optLanguageFrench" value="French">French</option>
-                        </select>
-                        <div class="selectArrowContainer"><div style="visibility:hidden;">0</div><i class="selectArrow md-icon"></i></div>
-                    </div>
-
-
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label>
-                            <input is="emby-checkbox" type="checkbox" id="chkTidyGenres" name="chkTidyGenres" />
-                            <span>Tidy Genre List</span>
-                        </label>
-                        <div class="fieldDescription checkboxFieldDescription"></div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <input is="emby-input" type="number" min="0" id="chkAniDB_wait_time" name="chkAniDB_wait_time" label="AniDB wait time [ms]" />
-                        <div class="fieldDescription">Set this to prevent IP ban.</div>
-                    </div>
-
-                    <br />
-                    <div>
-                        <button is="emby-button" type="submit" class="raised button-submit block emby-button"><span>Save</span></button>
-                    </div>
-
-                </form>
+        <form class="auto-center">
+            <div class="selectContainer">
+                <select is="emby-select" class="titleLanguage" name="titleLanguage" label="Title Language:">
+                    <option value="Localized">Localized</option>
+                    <option value="JapaneseRomaji">Romaji</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="German">German</option>
+                    <option value="French">French</option>
+                </select>
+                <div class="selectArrowContainer"><div style="visibility:hidden;">0</div><i class="selectArrow md-icon"></i></div>
             </div>
-        </div>
-
-        <script type="text/javascript">
-
-            var animeConfigurationPage = {
-                pluginUniqueId: "1d0dddf7-1877-4473-8d7b-03f7dac1e559"
-            };
 
 
-            $('.animeConfigurationPage').on('pageshow', function (event) {
-                Dashboard.showLoadingMsg();
-                var page = this;
-                ApiClient.getPluginConfiguration(animeConfigurationPage.pluginUniqueId).then(function (config) {
-                    $('#titleLanguage', page).val(config.TitlePreference).change();
-                    page.querySelector('#chkTidyGenres').checked = config.TidyGenreList;
-                    $('#chkAniDB_wait_time', page).val(config.AniDB_wait_time).change();
-                    Dashboard.hideLoadingMsg();
-                });
-            });
-            $('.animeConfigurationForm').on('submit', function (e) {
-                Dashboard.showLoadingMsg();
-                var form = this;
-                ApiClient.getPluginConfiguration(animeConfigurationPage.pluginUniqueId).then(function (config) {
-                    config.TitlePreference = $('#titleLanguage', form).val();
-                    //config.AllowAutomaticMetadataUpdates = $('#chkAutomaticUpdates', form).prop('checked');
-                    config.TidyGenreList = $('#chkTidyGenres').prop('checked');
-                    config.AniDB_wait_time = $('#chkAniDB_wait_time').val();
-                    //config.UseAnidbOrderingWithSeasons = $('#chkAnidbSeasonOne').prop('checked');
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label>
+                    <input is="emby-checkbox" type="checkbox" class="chkTidyGenres" name="chkTidyGenres" />
+                    <span>Tidy Genre List</span>
+                </label>
+                <div class="fieldDescription checkboxFieldDescription"></div>
+            </div>
 
-                    ApiClient.updatePluginConfiguration(animeConfigurationPage.pluginUniqueId, config).then(Dashboard.processPluginConfigurationUpdateResult);
-                });
-                // Disable default form submission
-                return false;
-            });
+            <div class="inputContainer">
+                <input is="emby-input" type="number" min="0" class="chkAniDB_wait_time" name="chkAniDB_wait_time" label="AniDB wait time [ms]" />
+                <div class="fieldDescription">Set this to prevent IP ban.</div>
+            </div>
 
-        </script>
-
+            <br />
+            <div>
+                <button is="emby-button" type="submit" class="raised button-submit block emby-button"><span>${Save}</span></button>
+            </div>
+        </form>
     </div>
-</body>
-</html>
+</div>

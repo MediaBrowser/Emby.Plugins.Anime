@@ -34,6 +34,11 @@ namespace MediaBrowser.Plugins.Anime
                 {
                     Name = "anime",
                     EmbeddedResourcePath = "MediaBrowser.Plugins.Anime.Configuration.configPage.html"
+                },
+                new PluginPageInfo
+                {
+                    Name = "animejs",
+                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.configPage.js"
                 }
             };
         }

@@ -99,24 +99,6 @@ namespace Emby.Anime
         }
 
         /// <summary>
-        /// If a and b match it return true
-        /// </summary>
-        /// <param name="a"></param>
-        /// <param name="b"></param>
-        /// <returns></returns>
-        public static bool Compare_strings(string a, string b)
-        {
-            if (!string.IsNullOrEmpty(a) && !string.IsNullOrEmpty(b))
-            {
-                if (Simple_compare(a, b))
-                    return true;
-
-                return false;
-            }
-            return false;
-        }
-
-        /// <summary>
         /// simple regex
         /// </summary>
         /// <param name="regex"></param>
