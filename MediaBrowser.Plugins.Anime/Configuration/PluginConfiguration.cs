@@ -23,6 +23,11 @@ namespace MediaBrowser.Plugins.Anime.Configuration
         /// Use titles in German.
         /// </summary>
         German,
+        
+        /// <summary>
+        /// Use titles in French.
+        /// </summary>
+        French,
     }
 
     public class PluginConfiguration
