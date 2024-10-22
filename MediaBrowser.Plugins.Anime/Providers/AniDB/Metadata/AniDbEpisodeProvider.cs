@@ -2,6 +2,7 @@
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Providers;
 using System;
 using System.Collections.Generic;
@@ -58,7 +59,9 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
             result.HasMetadata = true;
 
-            ParseEpisodeXml(xml, result.Item, info.MetadataLanguage);
+            var metadataLanguages = info.MetadataLanguages;
+
+            ParseEpisodeXml(xml, result.Item, metadataLanguages);
 
             if (info.IndexNumberEnd != null && info.IndexNumberEnd > info.IndexNumber)
             {
@@ -68,7 +71,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                     if (additionalXml == null || !additionalXml.Exists)
                         continue;
 
-                    ParseAdditionalEpisodeXml(additionalXml, result.Item, info.MetadataLanguage);
+                    ParseAdditionalEpisodeXml(additionalXml, result.Item, metadataLanguages);
                 }
             }
 
@@ -125,7 +128,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             throw new NotImplementedException();
         }
 
-        private void ParseAdditionalEpisodeXml(FileInfo xml, Episode episode, string metadataLanguage)
+        private void ParseAdditionalEpisodeXml(FileInfo xml, Episode episode, CultureDto[] metadataLanguages)
         {
             var settings = new XmlReaderSettings
             {
@@ -175,7 +178,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                     }
                 }
 
-                var title = titles.Localize(Plugin.Instance.Configuration.TitlePreference, metadataLanguage).Name;
+                var title = titles.Localize(metadataLanguages).Name;
                 if (!string.IsNullOrEmpty(title))
                     episode.Name += " / " + title;
             }
@@ -187,7 +190,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             return Path.GetDirectoryName(seriesDataPath);
         }
 
-        private void ParseEpisodeXml(FileInfo xml, Episode episode, string preferredMetadataLanguage)
+        private void ParseEpisodeXml(FileInfo xml, Episode episode, CultureDto[] metadataLanguages)
         {
             var settings = new XmlReaderSettings
             {
@@ -267,7 +270,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                     }
                 }
 
-                var title = titles.Localize(Plugin.Instance.Configuration.TitlePreference, preferredMetadataLanguage).Name;
+                var title = titles.Localize(metadataLanguages).Name;
                 if (!string.IsNullOrEmpty(title))
                     episode.Name = title;
             }

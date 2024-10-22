@@ -20,6 +20,7 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using MediaBrowser.Model.Logging;
+using MediaBrowser.Model.Globalization;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
@@ -145,7 +146,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 result.Item.SetProviderId(ProviderNames.AniDb, aid);
 
                 var seriesDataPath = await GetSeriesData(_appPaths, _httpClient, aid, cancellationToken);
-                FetchSeriesInfo(result, seriesDataPath, info.MetadataLanguage ?? "en");
+                FetchSeriesInfo(result, seriesDataPath, info.MetadataLanguages);
             }
 
             return result;
@@ -366,7 +367,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             return Path.Combine(paths.CachePath, "anidb", "series", seriesId);
         }
 
-        private void FetchSeriesInfo(MetadataResult<Series> result, string seriesDataPath, string preferredMetadataLangauge)
+        private void FetchSeriesInfo(MetadataResult<Series> result, string seriesDataPath, CultureDto[] metadataLanguages)
         {
             var series = result.Item;
             var settings = new XmlReaderSettings
@@ -429,7 +430,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                             case "titles":
                                 using (var subtree = reader.ReadSubtree())
                                 {
-                                    var title = ParseTitle(subtree, preferredMetadataLangauge);
+                                    var title = ParseTitle(subtree, metadataLanguages);
                                     if (!string.IsNullOrEmpty(title))
                                     {
                                         series.Name = title;
@@ -734,7 +735,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             }
         }
 
-        private string ParseTitle(XmlReader reader, string preferredMetadataLangauge)
+        private string ParseTitle(XmlReader reader, CultureDto[] metadataLanguages)
         {
             var titles = new List<Title>();
 
@@ -755,7 +756,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 }
             }
 
-            return titles.Localize(Plugin.Instance.Configuration.TitlePreference, preferredMetadataLangauge).Name;
+            return titles.Localize(metadataLanguages).Name;
         }
 
         private void ParseCreators(MetadataResult<Series> series, XmlReader reader)
@@ -1166,40 +1167,27 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
     public static class TitleExtensions
     {
-        public static Title Localize(this IEnumerable<Title> titles, TitlePreferenceType preference, string metadataLanguage)
+        public static Title Localize(this List<Title> titles, CultureDto[] metadataLanguages)
         {
-            var titlesList = titles as IList<Title> ?? titles.ToList();
+            var titlesMatchingLanguage = titles
+                .Where(i => string.IsNullOrEmpty(i.Language) || metadataLanguages.Any(m => m.ContainsLanguage(i.Language)))
+                .OrderBy(i => Array.FindIndex(metadataLanguages, m => m.ContainsLanguage(i.Language)) * -10000)
+                .ToList();
 
-            if (preference == TitlePreferenceType.Localized)
+            // prefer an official title, else look for a synonym
+            var localized = titlesMatchingLanguage.FirstOrDefault(t => string.Equals(t.Type, "main", StringComparison.OrdinalIgnoreCase)) ??
+                            titlesMatchingLanguage.FirstOrDefault(t => string.Equals(t.Type, "official", StringComparison.OrdinalIgnoreCase)) ??
+                            titlesMatchingLanguage.FirstOrDefault(t => string.Equals(t.Type, "synonym", StringComparison.OrdinalIgnoreCase));
+
+            if (localized != null)
             {
-                // prefer an official title, else look for a synonym
-                var localized = titlesList.FirstOrDefault(t => t.Language == metadataLanguage && t.Type == "main") ??
-                                titlesList.FirstOrDefault(t => t.Language == metadataLanguage && t.Type == "official") ??
-                                titlesList.FirstOrDefault(t => t.Language == metadataLanguage && t.Type == "synonym");
-
-                if (localized != null)
-                {
-                    return localized;
-                }
-            }
-
-            if (preference == TitlePreferenceType.Japanese)
-            {
-                // prefer an official title, else look for a synonym
-                var japanese = titlesList.FirstOrDefault(t => t.Language == "ja" && t.Type == "main") ??
-                               titlesList.FirstOrDefault(t => t.Language == "ja" && t.Type == "official") ??
-                               titlesList.FirstOrDefault(t => t.Language == "ja" && t.Type == "synonym");
-
-                if (japanese != null)
-                {
-                    return japanese;
-                }
+                return localized;
             }
 
             // return the main title (romaji)
-            return titlesList.FirstOrDefault(t => t.Language == "x-jat" && t.Type == "main") ??
-                   titlesList.FirstOrDefault(t => t.Type == "main") ??
-                   titlesList.FirstOrDefault();
+            return titles.FirstOrDefault(t => string.Equals(t.Type, "main", StringComparison.OrdinalIgnoreCase)) ??
+                titles.FirstOrDefault(t => string.Equals(t.Type, "official", StringComparison.OrdinalIgnoreCase)) ??
+                titles.FirstOrDefault();
         }
 
         /// <summary>
