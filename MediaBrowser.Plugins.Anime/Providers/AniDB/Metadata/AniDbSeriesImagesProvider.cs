@@ -13,6 +13,8 @@ using System.Threading.Tasks;
 using System.Xml;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.IO;
+using System.Globalization;
+using System;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
@@ -92,18 +94,29 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 ValidationType = ValidationType.None
             };
 
-            using (var streamReader = new StreamReader(seriesDataPath, Encoding.UTF8))
+            using (var streamReader = _fileSystem.GetFileStream(seriesDataPath, FileOpenMode.Open, FileAccessMode.Read))
+            using (var reader = XmlReader.Create(streamReader, settings))
             {
-                using (XmlReader reader = XmlReader.Create(streamReader, settings))
-                {
-                    reader.MoveToContent();
+                reader.MoveToContent();
+                reader.Read();
 
-                    while (reader.Read())
+                while (!reader.EOF && reader.ReadState == ReadState.Interactive)
+                {
+                    if (reader.NodeType == XmlNodeType.Element)
                     {
-                        if (reader.NodeType == XmlNodeType.Element && reader.Name == "picture")
+                        switch (reader.Name)
                         {
-                            return "http://img7.anidb.net/pics/anime/" + reader.ReadElementContentAsString();
+                            case "picture":
+                                return "http://img7.anidb.net/pics/anime/" + reader.ReadElementContentAsString();
+
+                            default:
+                                reader.Skip();
+                                break;
                         }
+                    }
+                    else
+                    {
+                        reader.Read();
                     }
                 }
             }

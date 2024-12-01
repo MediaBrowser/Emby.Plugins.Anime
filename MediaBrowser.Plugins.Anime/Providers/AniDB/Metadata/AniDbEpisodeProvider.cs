@@ -136,10 +136,11 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 using (var reader = XmlReader.Create(streamReader, settings))
                 {
                     reader.MoveToContent();
+                    reader.Read();
 
                     var titles = new List<Title>();
 
-                    while (reader.Read())
+                    while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                     {
                         if (reader.NodeType == XmlNodeType.Element)
                         {
@@ -168,7 +169,14 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                                     });
 
                                     break;
+                                default:
+                                    reader.Skip();
+                                    break;
                             }
+                        }
+                        else
+                        {
+                            reader.Read();
                         }
                     }
 
@@ -201,10 +209,11 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 using (var reader = XmlReader.Create(streamReader, settings))
                 {
                     reader.MoveToContent();
+                    reader.Read();
 
                     var titles = new List<Title>();
 
-                    while (reader.Read())
+                    while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                     {
                         if (reader.NodeType == XmlNodeType.Element)
                         {
@@ -263,7 +272,14 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                                     episode.Overview = AniDbSeriesProvider.ReplaceLineFeedWithNewLine(AniDbSeriesProvider.StripAniDbLinks(reader.ReadElementContentAsString()).Split(new[] { "Source:", "Note:" }, StringSplitOptions.None)[0]);
 
                                     break;
+                                default:
+                                    reader.Skip();
+                                    break;
                             }
+                        }
+                        else
+                        {
+                            reader.Read();
                         }
                     }
 
