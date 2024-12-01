@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Configuration;
+using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
@@ -20,16 +21,18 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
     {
         private readonly IApplicationPaths _appPaths;
         private readonly IHttpClient _httpClient;
+        private readonly IFileSystem _fileSystem;
 
-        public AniDbSeasonImageProvider(IApplicationPaths appPaths, IHttpClient httpClient)
+        public AniDbSeasonImageProvider(IApplicationPaths appPaths, IHttpClient httpClient, IFileSystem fileSystem)
         {
             _appPaths = appPaths;
             _httpClient = httpClient;
+            _fileSystem = fileSystem;
         }
 
         public Task<HttpResponseInfo> GetImageResponse(string url, CancellationToken cancellationToken)
         {
-            return new AniDbSeriesImagesProvider(_httpClient, _appPaths).GetImageResponse(url, cancellationToken);
+            return new AniDbSeriesImagesProvider(_httpClient, _appPaths, _fileSystem).GetImageResponse(url, cancellationToken);
         }
 
         public async Task<IEnumerable<RemoteImageInfo>> GetImages(BaseItem item, LibraryOptions libraryOptions, CancellationToken cancellationToken)
@@ -41,7 +44,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             if (string.IsNullOrEmpty(seriesId))
                 return Enumerable.Empty<RemoteImageInfo>();
 
-            return await new AniDbSeriesImagesProvider(_httpClient, _appPaths).GetImages(seriesId, cancellationToken);
+            return await new AniDbSeriesImagesProvider(_httpClient, _appPaths, _fileSystem).GetImages(seriesId, cancellationToken);
         }
 
         public IEnumerable<ImageType> GetSupportedImages(BaseItem item)

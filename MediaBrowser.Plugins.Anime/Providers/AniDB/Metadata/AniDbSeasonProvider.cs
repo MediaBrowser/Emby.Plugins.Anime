@@ -14,13 +14,6 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
     public class AniDbSeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>
     {
-        private readonly AniDbSeriesProvider _seriesProvider;
-
-        public AniDbSeasonProvider(IHttpClient httpClient, IApplicationPaths appPaths, ILogger logger)
-        {
-            _seriesProvider = new AniDbSeriesProvider(appPaths, httpClient, logger);
-        }
-
         public async Task<MetadataResult<Season>> GetMetadata(SeasonInfo info, CancellationToken cancellationToken)
         {
             var result = new MetadataResult<Season>
@@ -40,7 +33,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             var seriesInfo = new SeriesInfo();
             seriesInfo.SetProviderId(ProviderNames.AniDb, seriesId);
 
-            var seriesResult = await _seriesProvider.GetMetadata(seriesInfo, cancellationToken);
+            var seriesResult = await AniDbSeriesProvider.Current.GetMetadata(seriesInfo, cancellationToken);
             if (seriesResult.HasMetadata)
             {
                 result.Item.Name = seriesResult.Item.Name;

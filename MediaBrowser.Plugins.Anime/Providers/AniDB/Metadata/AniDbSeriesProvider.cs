@@ -21,6 +21,7 @@ using System.Xml.Linq;
 using System.Xml.Serialization;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Globalization;
+using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
@@ -38,6 +39,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
         private static readonly Regex AniDbUrlRegex = new Regex(@"http://anidb.net/\w+ \[(?<name>[^\]]*)\]");
         private readonly IApplicationPaths _appPaths;
         private readonly IHttpClient _httpClient;
+        private readonly IFileSystem _fileSystem;
         private readonly ILogger _logger;
 
         private readonly Dictionary<string, PersonType> _typeMappings = new Dictionary<string, PersonType>(StringComparer.OrdinalIgnoreCase)
@@ -110,11 +112,12 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             {"yuri", "Yuri"}
         };
 
-        public AniDbSeriesProvider(IApplicationPaths appPaths, IHttpClient httpClient, ILogger logger)
+        public AniDbSeriesProvider(IApplicationPaths appPaths, IHttpClient httpClient, ILogger logger, IFileSystem fileSystem)
         {
             _appPaths = appPaths;
             _httpClient = httpClient;
             _logger = logger;
+            _fileSystem = fileSystem;
 
             Current = this;
         }
@@ -145,7 +148,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
                 result.Item.SetProviderId(ProviderNames.AniDb, aid);
 
-                var seriesDataPath = await GetSeriesData(_appPaths, _httpClient, aid, cancellationToken);
+                var seriesDataPath = await GetSeriesData(_appPaths, _httpClient, _fileSystem, aid, cancellationToken).ConfigureAwait(false);
                 FetchSeriesInfo(result, seriesDataPath, info.MetadataLanguages);
             }
 
@@ -154,7 +157,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
         public async Task<string> GetAniDbXml(CancellationToken cancellationToken)
         {
-            await AniDbSeriesProvider.RequestLimiter.Tick(cancellationToken);
+            await AniDbSeriesProvider.RequestLimiter.Tick(cancellationToken).ConfigureAwait(false);
             await Task.Delay(Plugin.Instance.Configuration.AniDB_wait_time, cancellationToken).ConfigureAwait(false);
 
             var options = new HttpRequestOptions
@@ -347,16 +350,16 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             });
         }
 
-        public static async Task<string> GetSeriesData(IApplicationPaths appPaths, IHttpClient httpClient, string seriesId, CancellationToken cancellationToken)
+        public static async Task<string> GetSeriesData(IApplicationPaths appPaths, IHttpClient httpClient, IFileSystem fileSystem, string seriesId, CancellationToken cancellationToken)
         {
             var dataPath = CalculateSeriesDataPath(appPaths, seriesId);
             var seriesDataPath = Path.Combine(dataPath, SeriesDataFile);
-            var fileInfo = new FileInfo(seriesDataPath);
+            var fileInfo = fileSystem.GetFileInfo(seriesDataPath);
 
             // download series data if not present, or out of date
             if (!fileInfo.Exists || DateTime.UtcNow - fileInfo.LastWriteTimeUtc > TimeSpan.FromDays(7))
             {
-                await DownloadSeriesData(seriesId, seriesDataPath, appPaths.CachePath, httpClient, cancellationToken).ConfigureAwait(false);
+                await DownloadSeriesData(seriesId, seriesDataPath, appPaths.CachePath, httpClient, fileSystem, cancellationToken).ConfigureAwait(false);
             }
 
             return seriesDataPath;
@@ -378,7 +381,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 ValidationType = ValidationType.None
             };
 
-            using (var streamReader = File.Open(seriesDataPath, FileMode.Open, FileAccess.Read))
+            using (var streamReader = _fileSystem.GetFileStream(seriesDataPath, FileOpenMode.Open, FileAccessMode.Read))
             using (var reader = XmlReader.Create(streamReader, settings))
             {
                 reader.MoveToContent();
@@ -816,15 +819,15 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             return name.Split(' ').Reverse().Aggregate(string.Empty, (n, part) => n + " " + part).Trim();
         }
 
-        private static async Task DownloadSeriesData(string aid, string seriesDataPath, string cachePath, IHttpClient httpClient, CancellationToken cancellationToken)
+        private static async Task DownloadSeriesData(string aid, string seriesDataPath, string cachePath, IHttpClient httpClient, IFileSystem fileSystem, CancellationToken cancellationToken)
         {
-            var directory = Path.GetDirectoryName(seriesDataPath);
+            var directory = fileSystem.GetDirectoryName(seriesDataPath);
             if (directory != null)
             {
-                Directory.CreateDirectory(directory);
+                fileSystem.CreateDirectory(directory);
             }
 
-            DeleteXmlFiles(directory);
+            DeleteXmlFiles(directory, fileSystem);
 
             var requestOptions = new HttpRequestOptions
             {
@@ -838,7 +841,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             using (var stream = await httpClient.Get(requestOptions).ConfigureAwait(false))
             using (var unzipped = new GZipStream(stream, CompressionMode.Decompress))
             using (var reader = new StreamReader(unzipped, Encoding.UTF8, true))
-            using (var file = File.Open(seriesDataPath, FileMode.Create, FileAccess.Write))
+            using (var file = fileSystem.GetFileStream(seriesDataPath, FileOpenMode.Create, FileAccessMode.Write))
             using (var writer = new StreamWriter(file))
             {
                 var text = await reader.ReadToEndAsync().ConfigureAwait(false);
@@ -847,19 +850,18 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 await writer.WriteAsync(text).ConfigureAwait(false);
             }
 
-            await ExtractEpisodes(directory, seriesDataPath);
-            ExtractCast(cachePath, seriesDataPath);
+            await ExtractEpisodes(directory, seriesDataPath, fileSystem).ConfigureAwait(false);
+            ExtractCast(cachePath, seriesDataPath, fileSystem);
         }
 
-        private static void DeleteXmlFiles(string path)
+        private static void DeleteXmlFiles(string path, IFileSystem fileSystem)
         {
             try
             {
-                foreach (var file in new DirectoryInfo(path)
-                    .EnumerateFiles("*.xml", SearchOption.AllDirectories)
+                foreach (var file in fileSystem.GetFilePaths(path, true)
                     .ToList())
                 {
-                    file.Delete();
+                    fileSystem.DeleteFile(file);
                 }
             }
             catch (DirectoryNotFoundException)
@@ -868,7 +870,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             }
         }
 
-        private static async Task ExtractEpisodes(string seriesDataDirectory, string seriesDataPath)
+        private static async Task ExtractEpisodes(string seriesDataDirectory, string seriesDataPath, IFileSystem fileSystem)
         {
             var settings = new XmlReaderSettings
             {
@@ -878,22 +880,25 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 ValidationType = ValidationType.None
             };
 
-            using (var streamReader = new StreamReader(seriesDataPath, Encoding.UTF8))
+            using (var fileStream = fileSystem.OpenRead(seriesDataPath))
             {
-                // Use XmlReader for best performance
-                using (var reader = XmlReader.Create(streamReader, settings))
+                using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
                 {
-                    reader.MoveToContent();
-
-                    // Loop through each element
-                    while (reader.Read())
+                    // Use XmlReader for best performance
+                    using (var reader = XmlReader.Create(streamReader, settings))
                     {
-                        if (reader.NodeType == XmlNodeType.Element)
+                        reader.MoveToContent();
+
+                        // Loop through each element
+                        while (reader.Read())
                         {
-                            if (reader.Name == "episode")
+                            if (reader.NodeType == XmlNodeType.Element)
                             {
-                                var outerXml = reader.ReadOuterXml();
-                                await SaveEpsiodeXml(seriesDataDirectory, outerXml).ConfigureAwait(false);
+                                if (reader.Name == "episode")
+                                {
+                                    var outerXml = reader.ReadOuterXml();
+                                    await SaveEpsiodeXml(seriesDataDirectory, outerXml).ConfigureAwait(false);
+                                }
                             }
                         }
                     }
@@ -901,7 +906,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             }
         }
 
-        private static void ExtractCast(string cachePath, string seriesDataPath)
+        private static void ExtractCast(string cachePath, string seriesDataPath, IFileSystem fileSystem)
         {
             var settings = new XmlReaderSettings
             {
@@ -913,26 +918,29 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
             var cast = new List<AniDbPersonInfo>();
 
-            using (var streamReader = new StreamReader(seriesDataPath, Encoding.UTF8))
+            using (var fileStream = fileSystem.OpenRead(seriesDataPath))
             {
-                // Use XmlReader for best performance
-                using (var reader = XmlReader.Create(streamReader, settings))
+                using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
                 {
-                    reader.MoveToContent();
-
-                    // Loop through each element
-                    while (reader.Read())
+                    // Use XmlReader for best performance
+                    using (var reader = XmlReader.Create(streamReader, settings))
                     {
-                        if (reader.NodeType == XmlNodeType.Element && string.Equals(reader.Name, "characters", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var outerXml = reader.ReadOuterXml();
-                            cast.AddRange(ParseCharacterList(outerXml));
-                        }
+                        reader.MoveToContent();
 
-                        if (reader.NodeType == XmlNodeType.Element && string.Equals(reader.Name, "creators", StringComparison.OrdinalIgnoreCase))
+                        // Loop through each element
+                        while (reader.Read())
                         {
-                            var outerXml = reader.ReadOuterXml();
-                            cast.AddRange(ParseCreatorsList(outerXml));
+                            if (reader.NodeType == XmlNodeType.Element && string.Equals(reader.Name, "characters", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var outerXml = reader.ReadOuterXml();
+                                cast.AddRange(ParseCharacterList(outerXml));
+                            }
+
+                            if (reader.NodeType == XmlNodeType.Element && string.Equals(reader.Name, "creators", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var outerXml = reader.ReadOuterXml();
+                                cast.AddRange(ParseCreatorsList(outerXml));
+                            }
                         }
                     }
                 }
@@ -942,14 +950,14 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             foreach (var person in cast)
             {
                 var path = GetCastPath(person.Name, cachePath);
-                var directory = Path.GetDirectoryName(path);
-                Directory.CreateDirectory(directory);
+                var directory = fileSystem.GetDirectoryName(path);
+                fileSystem.CreateDirectory(directory);
 
-                if (!File.Exists(path) || person.Image != null)
+                if (!fileSystem.FileExists(path) || person.Image != null)
                 {
                     try
                     {
-                        using (var stream = File.Open(path, FileMode.Create))
+                        using (var stream = fileSystem.GetFileStream(path, FileOpenMode.Create, FileAccessMode.Write))
                             serializer.Serialize(stream, person);
                     }
                     catch (IOException)
@@ -960,16 +968,16 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             }
         }
 
-        public static AniDbPersonInfo GetPersonInfo(string cachePath, string name)
+        public static AniDbPersonInfo GetPersonInfo(string cachePath, string name, IFileSystem fileSystem)
         {
             var path = GetCastPath(name, cachePath);
             var serializer = new XmlSerializer(typeof(AniDbPersonInfo));
 
             try
             {
-                if (File.Exists(path))
+                if (fileSystem.FileExists(path))
                 {
-                    using (var stream = File.OpenRead(path))
+                    using (var stream = fileSystem.OpenRead(path))
                         return serializer.Deserialize(stream) as AniDbPersonInfo;
                 }
             }
@@ -1080,7 +1088,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             if (episodeNumber != null)
             {
                 var file = Path.Combine(seriesDataDirectory, string.Format("episode-{0}.xml", episodeNumber));
-                await SaveXml(xml, file);
+                await SaveXml(xml, file).ConfigureAwait(false);
             }
         }
 

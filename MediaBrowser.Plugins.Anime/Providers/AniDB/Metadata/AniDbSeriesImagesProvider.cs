@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using MediaBrowser.Model.Configuration;
+using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
@@ -19,11 +20,13 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
     {
         private readonly IHttpClient _httpClient;
         private readonly IApplicationPaths _appPaths;
+        private readonly IFileSystem _fileSystem;
 
-        public AniDbSeriesImagesProvider(IHttpClient httpClient, IApplicationPaths appPaths)
+        public AniDbSeriesImagesProvider(IHttpClient httpClient, IApplicationPaths appPaths, IFileSystem fileSystem)
         {
             _httpClient = httpClient;
             _appPaths = appPaths;
+            _fileSystem = fileSystem;
         }
 
         public async Task<HttpResponseInfo> GetImageResponse(string url, CancellationToken cancellationToken)
@@ -51,7 +54,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
             if (!string.IsNullOrEmpty(aniDbId))
             {
-                var seriesDataPath = await AniDbSeriesProvider.GetSeriesData(_appPaths, _httpClient, aniDbId, cancellationToken);
+                var seriesDataPath = await AniDbSeriesProvider.GetSeriesData(_appPaths, _httpClient, _fileSystem, aniDbId, cancellationToken);
                 var imageUrl = FindImageUrl(seriesDataPath);
 
                 if (!string.IsNullOrEmpty(imageUrl))

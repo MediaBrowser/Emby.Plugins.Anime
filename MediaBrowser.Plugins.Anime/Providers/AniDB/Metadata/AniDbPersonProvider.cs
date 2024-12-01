@@ -10,16 +10,19 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Configuration;
+using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
     public class AniDbPersonProvider : IRemoteMetadataProvider<Person, PersonLookupInfo>
     {
         private readonly IApplicationPaths _paths;
+        private readonly IFileSystem _fileSystem;
 
-        public AniDbPersonProvider(IApplicationPaths paths)
+        public AniDbPersonProvider(IApplicationPaths paths, IFileSystem fileSystem)
         {
             _paths = paths;
+            _fileSystem = fileSystem;
         }
 
         public Task<MetadataResult<Person>> GetMetadata(PersonLookupInfo info, CancellationToken cancellationToken)
@@ -29,7 +32,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             if (!string.IsNullOrEmpty(info.GetProviderId(ProviderNames.AniDb)))
                 return Task.FromResult(result);
 
-            var person = AniDbSeriesProvider.GetPersonInfo(_paths.CachePath, info.Name);
+            var person = AniDbSeriesProvider.GetPersonInfo(_paths.CachePath, info.Name, _fileSystem);
             if (!string.IsNullOrEmpty(person?.Id))
             {
                 result.Item = new Person();
@@ -58,11 +61,13 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
     {
         private readonly IHttpClient _httpClient;
         private readonly IApplicationPaths _paths;
+        private readonly IFileSystem _fileSystem;
 
-        public AniDbPersonImageProvider(IApplicationPaths paths, IHttpClient httpClient)
+        public AniDbPersonImageProvider(IApplicationPaths paths, IHttpClient httpClient, IFileSystem fileSystem)
         {
             _paths = paths;
             _httpClient = httpClient;
+            _fileSystem = fileSystem;   
         }
 
         public bool Supports(BaseItem item)
@@ -81,7 +86,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
         {
             var infos = new List<RemoteImageInfo>();
 
-            var person = AniDbSeriesProvider.GetPersonInfo(_paths.CachePath, item.Name);
+            var person = AniDbSeriesProvider.GetPersonInfo(_paths.CachePath, item.Name, _fileSystem);
             if (person != null)
             {
                 infos.Add(new RemoteImageInfo
