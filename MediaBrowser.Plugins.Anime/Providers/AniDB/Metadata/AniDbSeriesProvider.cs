@@ -535,13 +535,13 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                     switch (reader.Name)
                     {
                         case "tag":
-                            if (!int.TryParse(reader.GetAttribute("weight"), out int weight))
+                            if (!int.TryParse(reader.GetAttribute("weight"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int weight))
                                 continue;
 
-                            if (int.TryParse(reader.GetAttribute("id"), out int id) && IgnoredCategoryIds.Contains(id))
+                            if (int.TryParse(reader.GetAttribute("id"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int id) && IgnoredCategoryIds.Contains(id))
                                 continue;
 
-                            if (int.TryParse(reader.GetAttribute("parentid"), out int parentId) && IgnoredCategoryIds.Contains(parentId))
+                            if (int.TryParse(reader.GetAttribute("parentid"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int parentId) && IgnoredCategoryIds.Contains(parentId))
                                 continue;
 
                             using (var categorySubtree = reader.ReadSubtree())

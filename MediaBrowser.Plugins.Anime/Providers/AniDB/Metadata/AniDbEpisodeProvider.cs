@@ -226,7 +226,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                             if (!string.IsNullOrEmpty(length))
                             {
                                 long duration;
-                                if (long.TryParse(length, out duration))
+                                if (long.TryParse(length, NumberStyles.Integer, CultureInfo.InvariantCulture, out duration))
                                     episode.RunTimeTicks = TimeSpan.FromMinutes(duration).Ticks;
                             }
 
