@@ -228,7 +228,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 foreach (string _aid in pre_aid)
                 {
                     string result = Equals_check.One_line_regex(new Regex(@"<anime aid=" + "\"" + _aid + "\"" + @"((?s).*?)<\/anime>", RegexOptions.IgnoreCase), xml);
-                    int count = (result.Length - result.Replace(a, "").Length) / a.Length;
+                    int count = (result.Length - result.Replace(a, "", StringComparison.OrdinalIgnoreCase).Length) / a.Length;
                     if (biggestcount < count)
                     {
                         biggestcount = count;
@@ -663,7 +663,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
         public static string ReplaceLineFeedWithNewLine(string text)
         {
-            return text.Replace("\n", "<br>\n");
+            return text.Replace("\n", "<br>\n", StringComparison.OrdinalIgnoreCase);
         }
 
         private void ParseActors(MetadataResult<Series> series, XmlReader reader)
@@ -925,7 +925,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             using (var writer = new StreamWriter(file))
             {
                 var text = await reader.ReadToEndAsync().ConfigureAwait(false);
-                text = text.Replace("&#x0;", "");
+                text = text.Replace("&#x0;", "", StringComparison.OrdinalIgnoreCase);
 
                 await writer.WriteAsync(text).ConfigureAwait(false);
             }

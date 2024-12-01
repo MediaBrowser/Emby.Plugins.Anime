@@ -186,23 +186,23 @@ namespace MediaBrowser.Plugins.Anime
                 return true;
             if (string.Equals(a.Replace("rdseason", "", StringComparison.OrdinalIgnoreCase), b, StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (string.Equals(a.Replace("2", "secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b.Replace("2", "secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), b, 0), ""), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(a.Replace("2", "secondseason", StringComparison.OrdinalIgnoreCase).ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b.Replace("2", "secondseason", StringComparison.OrdinalIgnoreCase).ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), b, 0), ""), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (string.Equals(a.Replace("2", "secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(a.Replace("2", "secondseason", StringComparison.OrdinalIgnoreCase).ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (string.Equals(a.Replace(" 2", ":secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b.Replace(" 2", ":secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), b, 0), ""), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(a.Replace(" 2", ":secondseason", StringComparison.OrdinalIgnoreCase).ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b.Replace(" 2", ":secondseason", StringComparison.OrdinalIgnoreCase).ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), b, 0), ""), StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (string.Equals(a.Replace(" 2", ":secondseason").ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(a.Replace(" 2", ":secondseason", StringComparison.OrdinalIgnoreCase).ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
                 return true;
             if (string.Equals(a.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), b, 0), ""), StringComparison.OrdinalIgnoreCase))
                 return true;
             if (string.Equals(a.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), ""), b, StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (string.Equals(b.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), b, 0), "").Replace("  2", ": second Season"), a, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(b.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), b, 0), "").Replace("  2", ": second Season", StringComparison.OrdinalIgnoreCase), a, StringComparison.OrdinalIgnoreCase))
                 return true;
             if (string.Equals(a.Replace(" 2ndseason", ":secondseason", StringComparison.OrdinalIgnoreCase) + " vs " + b, a, StringComparison.OrdinalIgnoreCase))
                 return true;
-            if (string.Equals(a.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), "").Replace("  2", ":secondseason"), b, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(a.ReplaceSafe(One_line_regex(new Regex(@"(?s)\(.*?\)", RegexOptions.IgnoreCase), a, 0), "").Replace("  2", ":secondseason", StringComparison.OrdinalIgnoreCase), b, StringComparison.OrdinalIgnoreCase))
                 return true;
             return false;
         }
