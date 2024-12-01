@@ -56,16 +56,21 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
             if (!string.IsNullOrEmpty(aniDbId))
             {
-                var seriesDataPath = await AniDbSeriesProvider.GetSeriesData(_appPaths, _httpClient, _fileSystem, aniDbId, cancellationToken);
-                var imageUrl = FindImageUrl(seriesDataPath);
-
-                if (!string.IsNullOrEmpty(imageUrl))
+                using (var stream = await AniDbSeriesProvider.GetSeriesDataFile(_appPaths, _httpClient, _fileSystem, aniDbId, cancellationToken).ConfigureAwait(false))
                 {
-                    list.Add(new RemoteImageInfo
+                    if (stream != null)
                     {
-                        ProviderName = Name,
-                        Url = imageUrl
-                    });
+                        var imageUrl = FindImageUrl(stream);
+
+                        if (!string.IsNullOrEmpty(imageUrl))
+                        {
+                            list.Add(new RemoteImageInfo
+                            {
+                                ProviderName = Name,
+                                Url = imageUrl
+                            });
+                        }
+                    }
                 }
             }
 
@@ -84,7 +89,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             return item is Series;
         }
 
-        private string FindImageUrl(string seriesDataPath)
+        private string FindImageUrl(Stream seriesData)
         {
             var settings = new XmlReaderSettings
             {
@@ -94,8 +99,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 ValidationType = ValidationType.None
             };
 
-            using (var streamReader = _fileSystem.GetFileStream(seriesDataPath, FileOpenMode.Open, FileAccessMode.Read))
-            using (var reader = XmlReader.Create(streamReader, settings))
+            using (var reader = XmlReader.Create(seriesData, settings))
             {
                 reader.MoveToContent();
                 reader.Read();

@@ -76,9 +76,7 @@ namespace MediaBrowser.Plugins.Anime
         /// <returns></returns>
         public static string Clear_name_step2(string a)
         {
-            if (a.Contains("Gekijyouban"))
-                a = (a.Replace("Gekijyouban", "", StringComparison.OrdinalIgnoreCase) + " Movie").Trim();
-            if (a.Contains("gekijyouban"))
+            if (a.Contains("gekijyouban", StringComparison.OrdinalIgnoreCase))
                 a = (a.Replace("gekijyouban", "", StringComparison.OrdinalIgnoreCase) + " Movie").Trim();
 
             a = a.Trim().ReplaceSafe(One_line_regex(new Regex(@"(?s) \(.*?\)", RegexOptions.IgnoreCase), a.Trim(), 0), "", StringComparison.OrdinalIgnoreCase);
@@ -132,7 +130,7 @@ namespace MediaBrowser.Plugins.Anime
         {
             if (fastmode)
             {
-                if (a[0] == b[0])
+                if (string.Equals(a.Substring(0, 1), b.Substring(0, 1), StringComparison.OrdinalIgnoreCase))
                 {
                 }
                 else
@@ -157,8 +155,8 @@ namespace MediaBrowser.Plugins.Anime
             if (string.Equals(a, b, StringComparison.OrdinalIgnoreCase))
                 return true;
 
-            a = a.ToLower().Replace(" ", "", StringComparison.OrdinalIgnoreCase).Trim().Replace(".", "", StringComparison.OrdinalIgnoreCase);
-            b = b.ToLower().Replace(" ", "", StringComparison.OrdinalIgnoreCase).Trim().Replace(".", "", StringComparison.OrdinalIgnoreCase);
+            a = a.Replace(" ", "", StringComparison.OrdinalIgnoreCase).Trim().Replace(".", "", StringComparison.OrdinalIgnoreCase);
+            b = b.Replace(" ", "", StringComparison.OrdinalIgnoreCase).Trim().Replace(".", "", StringComparison.OrdinalIgnoreCase);
 
             if (string.Equals(Clear_name(a), Clear_name(b), StringComparison.OrdinalIgnoreCase))
                 return true;
@@ -222,7 +220,7 @@ namespace MediaBrowser.Plugins.Anime
             int highest_number = 0;
             while (!string.IsNullOrEmpty(regex_c) && x < 100)
             {
-                regex_c = (One_line_regex(new Regex(@"(" + symbol + @"+)", RegexOptions.IgnoreCase), input.ToLower().Trim(), 1, x)).Trim();
+                regex_c = (One_line_regex(new Regex(@"(" + symbol + @"+)", RegexOptions.IgnoreCase), input.Trim(), 1, x)).Trim();
                 if (highest_number < regex_c.Count())
                     highest_number = regex_c.Count();
                 x++;

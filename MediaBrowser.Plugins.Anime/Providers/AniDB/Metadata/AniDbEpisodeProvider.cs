@@ -5,6 +5,7 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Providers;
+using MediaBrowser.Model.Entities;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -12,6 +13,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using MediaBrowser.Controller.Entities;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
@@ -46,39 +48,23 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             if (string.IsNullOrEmpty(anidbId))
                 return result;
 
-            var seriesFolder = await FindSeriesFolder(anidbId, cancellationToken).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(seriesFolder))
-                return result;
-
-            var xml = GetEpisodeXmlFile(info.IndexNumber, info.ParentIndexNumber, seriesFolder);
-            if (xml == null || !_fileSystem.FileExists(xml))
-                return result;
-
-            result.Item = new Episode
+            if (!info.HasProviderId(ProviderNames.AniDb) && !info.IndexNumber.HasValue)
             {
-                IndexNumber = info.IndexNumber,
-                ParentIndexNumber = info.ParentIndexNumber
-            };
-
-            result.HasMetadata = true;
-
-            var metadataLanguages = info.MetadataLanguages;
-
-            ParseEpisodeXml(xml, result.Item, metadataLanguages);
-
-            if (info.IndexNumberEnd != null && info.IndexNumberEnd > info.IndexNumber)
-            {
-                for (var i = info.IndexNumber + 1; i <= info.IndexNumberEnd; i++)
-                {
-                    var additionalXml = GetEpisodeXmlFile(i, info.ParentIndexNumber, seriesFolder);
-                    if (additionalXml == null || !_fileSystem.FileExists(additionalXml))
-                        continue;
-
-                    ParseAdditionalEpisodeXml(additionalXml, result.Item, metadataLanguages);
-                }
+                return result;
             }
 
-            return result;
+            using (var stream = await AniDbSeriesProvider.GetSeriesDataFile(_configurationManager.ApplicationPaths, _httpClient, _fileSystem, anidbId, cancellationToken).ConfigureAwait(false))
+            {
+                if (stream != null)
+                {
+                    var metadataLanguages = info.MetadataLanguages;
+
+                    result.Item = ParseSeriesXml(stream, info, metadataLanguages);
+                    result.HasMetadata = result.Item != null;
+                }
+
+                return result;
+            }
         }
 
         public string Name => "AniDB";
@@ -87,29 +73,11 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
         {
             var list = new List<RemoteSearchResult>();
 
-            var anidbId = searchInfo.SeriesProviderIds.GetOrDefault(ProviderNames.AniDb);
-            if (string.IsNullOrEmpty(anidbId))
-                return list;
-
-            await AniDbSeriesProvider.GetSeriesData(_configurationManager.ApplicationPaths, _httpClient, _fileSystem, anidbId, cancellationToken).ConfigureAwait(false);
-
             var metadataResult = await GetMetadata(searchInfo, cancellationToken).ConfigureAwait(false);
 
             if (metadataResult.HasMetadata)
             {
-                var item = metadataResult.Item;
-
-                list.Add(new RemoteSearchResult
-                {
-                    IndexNumber = item.IndexNumber,
-                    Name = item.Name,
-                    ParentIndexNumber = item.ParentIndexNumber,
-                    PremiereDate = item.PremiereDate,
-                    ProductionYear = item.ProductionYear,
-                    ProviderIds = item.ProviderIds,
-                    SearchProviderName = Name,
-                    IndexNumberEnd = item.IndexNumberEnd
-                });
+                list.Add(metadataResult.ToRemoteSearchResult(Name));
             }
 
             return list;
@@ -120,7 +88,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             throw new NotImplementedException();
         }
 
-        private void ParseAdditionalEpisodeXml(string xmlFile, Episode episode, CultureDto[] metadataLanguages)
+        private Episode ParseSeriesXml(Stream stream, EpisodeInfo info, CultureDto[] metadataLanguages)
         {
             var settings = new XmlReaderSettings
             {
@@ -130,176 +98,208 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 ValidationType = ValidationType.None
             };
 
-            using (var stream = _fileSystem.OpenRead(xmlFile))
+            using (var streamReader = new StreamReader(stream))
+            using (var reader = XmlReader.Create(streamReader, settings))
             {
-                using (var streamReader = new StreamReader(stream))
-                using (var reader = XmlReader.Create(streamReader, settings))
+                reader.MoveToContent();
+                reader.Read();
+
+                var titles = new List<Title>();
+
+                while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                 {
-                    reader.MoveToContent();
-                    reader.Read();
-
-                    var titles = new List<Title>();
-
-                    while (!reader.EOF && reader.ReadState == ReadState.Interactive)
+                    if (reader.NodeType == XmlNodeType.Element)
                     {
-                        if (reader.NodeType == XmlNodeType.Element)
+                        switch (reader.Name)
                         {
-                            switch (reader.Name)
-                            {
-                                case "length":
-                                    var length = reader.ReadElementContentAsString();
-                                    if (!string.IsNullOrEmpty(length))
-                                    {
-                                        long duration;
-                                        if (long.TryParse(length, out duration))
-                                            episode.RunTimeTicks += TimeSpan.FromMinutes(duration).Ticks;
-                                    }
+                            case "episodes":
+                                using (var subtree = reader.ReadSubtree())
+                                {
+                                    return ParseEpisodesNode(subtree, info, metadataLanguages);
+                                }
 
-                                    break;
-
-                                case "title":
-                                    var language = reader.GetAttribute("xml:lang");
-                                    var name = reader.ReadElementContentAsString();
-
-                                    titles.Add(new Title
-                                    {
-                                        Language = language,
-                                        Type = "main",
-                                        Name = name
-                                    });
-
-                                    break;
-                                default:
-                                    reader.Skip();
-                                    break;
-                            }
-                        }
-                        else
-                        {
-                            reader.Read();
+                            default:
+                                reader.Skip();
+                                break;
                         }
                     }
-
-                    var title = titles.Localize(metadataLanguages).Name;
-                    if (!string.IsNullOrEmpty(title))
-                        episode.Name += " / " + title;
+                    else
+                    {
+                        reader.Read();
+                    }
                 }
             }
+
+            return null;
         }
 
-        private async Task<string> FindSeriesFolder(string seriesId, CancellationToken cancellationToken)
+        private Episode ParseEpisodesNode(XmlReader reader, EpisodeInfo info, CultureDto[] metadataLanguages)
         {
-            var seriesDataPath = await AniDbSeriesProvider.GetSeriesData(_configurationManager.ApplicationPaths, _httpClient, _fileSystem, seriesId, cancellationToken).ConfigureAwait(false);
-            return _fileSystem.GetDirectoryName(seriesDataPath);
-        }
+            reader.MoveToContent();
+            reader.Read();
 
-        private void ParseEpisodeXml(string xmlFile, Episode episode, CultureDto[] metadataLanguages)
-        {
-            var settings = new XmlReaderSettings
+            var titles = new List<Title>();
+
+            var id = info.GetProviderId(ProviderNames.AniDb);
+            var filterOnNumber = string.IsNullOrEmpty(id);
+
+            BaseItem.Logger.Info("Searching for episode with anidb id: {0}, IndexNumber: {1}", id, info.IndexNumber);
+
+            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
-                CheckCharacters = false,
-                IgnoreProcessingInstructions = true,
-                IgnoreComments = true,
-                ValidationType = ValidationType.None
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    switch (reader.Name)
+                    {
+                        case "episode":
+                            var currentId = reader.GetAttribute("id");
+
+                            if (!string.IsNullOrEmpty(id))
+                            {
+                                if (!string.Equals(id, currentId, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    reader.Skip();
+                                    break;
+                                }
+                            }
+
+                            using (var subtree = reader.ReadSubtree())
+                            {
+                                var episode = ParseEpisodeNode(subtree, info, currentId, filterOnNumber, metadataLanguages);
+
+                                if (episode != null)
+                                {
+                                    return episode;
+                                }
+                            }
+                            break;
+
+                        default:
+                            reader.Skip();
+                            break;
+                    }
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            return null;
+        }
+
+
+        private Episode ParseEpisodeNode(XmlReader reader, EpisodeInfo info, string nodeId, bool filterOnNumber, CultureDto[] metadataLanguages)
+        {
+            var episode = new Episode()
+            {
+                ParentIndexNumber = info.ParentIndexNumber,
+                Name = info.Name,
+                ProviderIds = new ProviderIdDictionary(info.ProviderIds)
             };
 
-            using (var stream = _fileSystem.OpenRead(xmlFile))
+            episode.SetProviderId(ProviderNames.AniDb, nodeId);
+
+            reader.MoveToContent();
+            reader.Read();
+
+            var titles = new List<Title>();
+
+            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
-                using (var streamReader = new StreamReader(stream))
-                using (var reader = XmlReader.Create(streamReader, settings))
+                if (reader.NodeType == XmlNodeType.Element)
                 {
-                    reader.MoveToContent();
-                    reader.Read();
-
-                    var titles = new List<Title>();
-
-                    while (!reader.EOF && reader.ReadState == ReadState.Interactive)
+                    switch (reader.Name)
                     {
-                        if (reader.NodeType == XmlNodeType.Element)
-                        {
-                            switch (reader.Name)
+                        case "epno":
+                            var num = reader.ReadElementContentAsString();
+
+                            if (int.TryParse(num, NumberStyles.Integer, CultureInfo.InvariantCulture, out var episodeNumber))
                             {
-                                case "length":
-                                    var length = reader.ReadElementContentAsString();
-                                    if (!string.IsNullOrEmpty(length))
-                                    {
-                                        long duration;
-                                        if (long.TryParse(length, out duration))
-                                            episode.RunTimeTicks = TimeSpan.FromMinutes(duration).Ticks;
-                                    }
-
-                                    break;
-
-                                case "airdate":
-                                    var airdate = reader.ReadElementContentAsString();
-                                    if (!string.IsNullOrEmpty(airdate))
-                                    {
-                                        DateTime date;
-                                        if (DateTime.TryParse(airdate, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out date))
-                                        {
-                                            episode.PremiereDate = date;
-                                            episode.ProductionYear = date.Year;
-                                        }
-                                    }
-
-                                    break;
-
-                                case "rating":
-                                    int count;
-                                    float rating;
-                                    if (int.TryParse(reader.GetAttribute("votes"), NumberStyles.Any, CultureInfo.InvariantCulture, out count) &&
-                                        float.TryParse(reader.ReadElementContentAsString(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out rating))
-                                    {
-                                        episode.CommunityRating = (float)Math.Round(rating, 1);
-                                    }
-
-                                    break;
-
-                                case "title":
-                                    var language = reader.GetAttribute("xml:lang");
-                                    var name = reader.ReadElementContentAsString();
-
-                                    titles.Add(new Title
-                                    {
-                                        Language = language,
-                                        Type = "main",
-                                        Name = name
-                                    });
-
-                                    break;
-
-                                case "summary":
-                                    episode.Overview = AniDbSeriesProvider.ReplaceLineFeedWithNewLine(AniDbSeriesProvider.StripAniDbLinks(reader.ReadElementContentAsString()).Split(new[] { "Source:", "Note:" }, StringSplitOptions.None)[0]);
-
-                                    break;
-                                default:
-                                    reader.Skip();
-                                    break;
+                                episode.IndexNumber = episodeNumber;
                             }
-                        }
-                        else
-                        {
-                            reader.Read();
-                        }
-                    }
 
-                    var title = titles.Localize(metadataLanguages).Name;
-                    if (!string.IsNullOrEmpty(title))
-                        episode.Name = title;
+                            break;
+
+                        case "length":
+                            var length = reader.ReadElementContentAsString();
+                            if (!string.IsNullOrEmpty(length))
+                            {
+                                long duration;
+                                if (long.TryParse(length, out duration))
+                                    episode.RunTimeTicks = TimeSpan.FromMinutes(duration).Ticks;
+                            }
+
+                            break;
+
+                        case "airdate":
+                            var airdate = reader.ReadElementContentAsString();
+                            if (!string.IsNullOrEmpty(airdate))
+                            {
+                                DateTime date;
+                                if (DateTime.TryParse(airdate, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out date))
+                                {
+                                    episode.PremiereDate = date;
+                                    episode.ProductionYear = date.Year;
+                                }
+                            }
+
+                            break;
+
+                        case "rating":
+                            int count;
+                            float rating;
+                            if (int.TryParse(reader.GetAttribute("votes"), NumberStyles.Any, CultureInfo.InvariantCulture, out count) &&
+                                float.TryParse(reader.ReadElementContentAsString(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out rating))
+                            {
+                                episode.CommunityRating = (float)Math.Round(rating, 1);
+                            }
+
+                            break;
+
+                        case "title":
+                            var language = reader.GetAttribute("xml:lang");
+                            var name = reader.ReadElementContentAsString();
+
+                            titles.Add(new Title
+                            {
+                                Language = language,
+                                Type = "main",
+                                Name = name
+                            });
+
+                            break;
+
+                        case "summary":
+                            episode.Overview = AniDbSeriesProvider.ReplaceLineFeedWithNewLine(AniDbSeriesProvider.StripAniDbLinks(reader.ReadElementContentAsString()).Split(new[] { "Source:", "Note:" }, StringSplitOptions.None)[0]);
+
+                            break;
+                        default:
+                            reader.Skip();
+                            break;
+                    }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
-        }
 
-        private string GetEpisodeXmlFile(int? episodeNumber, int? _type, string seriesDataPath)
-        {
-            if (episodeNumber == null)
+            var title = titles.Localize(metadataLanguages).Name;
+            if (!string.IsNullOrEmpty(title))
+                episode.Name = title;
+
+            BaseItem.Logger.Info("Found episode with anidb id: {0}, IndexNumber: {1}", episode.GetProviderId(ProviderNames.AniDb), episode.IndexNumber);
+
+            if (filterOnNumber && info.IndexNumber.HasValue)
             {
-                return null;
+                if (episode.IndexNumber != info.IndexNumber)
+                {
+                    return null;
+                }
             }
-            string type = _type == 0 ? "S" : "";
 
-            const string nameFormat = "episode-{0}.xml";
-            return Path.Combine(seriesDataPath, string.Format(nameFormat, (type ?? "") + episodeNumber.Value));
+            return episode;
         }
     }
 }
