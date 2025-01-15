@@ -285,7 +285,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 }
             }
 
-            var title = titles.Localize(metadataLanguages).Name;
+            var title = titles.Localize(metadataLanguages, Plugin.Instance.Configuration.PreferredTitleLanguage).Name;
             if (!string.IsNullOrEmpty(title))
                 episode.Name = title;
 

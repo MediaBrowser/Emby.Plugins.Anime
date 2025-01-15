@@ -12,6 +12,7 @@
 
         ApiClient.getPluginConfiguration("1d0dddf7-1877-4473-8d7b-03f7dac1e559").then(function (config) {
 
+            config.PreferredTitleLanguage = form.querySelector('.titleLanguage').value;
             config.TidyGenreList = form.querySelector('.chkTidyGenres').checked;
             config.AniDB_wait_time = form.querySelector('.chkAniDB_wait_time').value;
 
@@ -42,6 +43,7 @@
 
             var view = instance.view;
 
+            view.querySelector('.titleLanguage').value = config.PreferredTitleLanguage;
             view.querySelector('.chkTidyGenres').checked = config.TidyGenreList;
             view.querySelector('.chkAniDB_wait_time').value = config.AniDB_wait_time;
 

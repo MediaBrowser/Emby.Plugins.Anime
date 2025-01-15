@@ -2,6 +2,14 @@
     <div class="scrollSlider flex-grow flex-direction-column padded-left padded-left-page padded-right padded-top-page padded-bottom-page">
 
         <form class="auto-center">
+
+            <div class="selectContainer">
+                <select is="emby-select" class="titleLanguage" name="titleLanguage" label="Title Language:">
+                    <option value="UseLibrarySetting">Use library setting</option>
+                    <option value="Romaji">Romaji</option>
+                </select>
+            </div>
+            
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label>
                     <input is="emby-checkbox" type="checkbox" class="chkTidyGenres" name="chkTidyGenres" />

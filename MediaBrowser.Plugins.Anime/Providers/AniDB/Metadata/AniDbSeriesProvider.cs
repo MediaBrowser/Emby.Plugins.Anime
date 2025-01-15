@@ -738,7 +738,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 }
             }
 
-            if (!string.IsNullOrEmpty(name)) 
+            if (!string.IsNullOrEmpty(name))
             {
                 var personInfo = new PersonInfo
                 {
@@ -826,7 +826,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
                 }
             }
 
-            return titles.Localize(metadataLanguages).Name;
+            return titles.Localize(metadataLanguages, Plugin.Instance.Configuration.PreferredTitleLanguage).Name;
         }
 
         private void ParseCreators(MetadataResult<Series> series, XmlReader reader)
@@ -947,8 +947,17 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
     public static class TitleExtensions
     {
-        public static Title Localize(this List<Title> titles, CultureDto[] metadataLanguages)
+        public static Title Localize(this List<Title> titles, CultureDto[] metadataLanguages, TitleLanguageOption languageOption)
         {
+            if (languageOption == TitleLanguageOption.Romaji)
+            {
+                var romaji = titles.FirstOrDefault(t => string.Equals(t.Language, "x-jat", StringComparison.OrdinalIgnoreCase) && string.Equals(t.Type, "main", StringComparison.OrdinalIgnoreCase));
+                if (romaji == null)
+                {
+                    return romaji;
+                }
+            }
+
             var titlesMatchingLanguage = titles
                 .Where(i => string.IsNullOrEmpty(i.Language) || metadataLanguages.Any(m => m.ContainsLanguage(i.Language)))
                 .OrderBy(i => Array.FindIndex(metadataLanguages, m => m.ContainsLanguage(i.Language)) * -10000)
