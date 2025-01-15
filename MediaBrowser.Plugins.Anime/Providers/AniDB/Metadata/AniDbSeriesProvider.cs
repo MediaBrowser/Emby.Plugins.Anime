@@ -952,7 +952,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             if (languageOption == TitleLanguageOption.Romaji)
             {
                 var romaji = titles.FirstOrDefault(t => string.Equals(t.Language, "x-jat", StringComparison.OrdinalIgnoreCase) && string.Equals(t.Type, "main", StringComparison.OrdinalIgnoreCase));
-                if (romaji == null)
+                if (romaji != null)
                 {
                     return romaji;
                 }
