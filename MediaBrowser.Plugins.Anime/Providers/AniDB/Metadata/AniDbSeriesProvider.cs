@@ -25,7 +25,7 @@ using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 {
-    public class AniDbSeriesProvider : IRemoteMetadataProvider<Series, SeriesInfo>, IHasOrder
+    public class AniDbSeriesProvider : IRemoteMetadataProvider<Series, SeriesInfo>, IHasOrder, IHasSupportedExternalIdentifiers
     {
         private const string SeriesDataFile = "series.xml";
         private const string SeriesQueryUrl = "http://api.anidb.net:9001/httpapi?request=anime&client={0}&clientver=1&protover=1&aid={1}";
@@ -41,6 +41,14 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
         private readonly IHttpClient _httpClient;
         private readonly IFileSystem _fileSystem;
         private readonly ILogger _logger;
+
+        public string[] GetSupportedExternalIdentifiers()
+        {
+            return new[] {
+
+                ProviderNames.AniDb
+            };
+        }
 
         private readonly Dictionary<string, PersonType> _typeMappings = new Dictionary<string, PersonType>(StringComparer.OrdinalIgnoreCase)
         {
@@ -328,16 +336,7 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
 
             if (metadata.HasMetadata)
             {
-                var res = new RemoteSearchResult
-                {
-                    Name = metadata.Item.Name,
-                    PremiereDate = metadata.Item.PremiereDate,
-                    ProductionYear = metadata.Item.ProductionYear,
-                    ProviderIds = metadata.Item.ProviderIds,
-                    SearchProviderName = Name
-                };
-
-                list.Add(res);
+                list.Add(metadata.ToRemoteSearchResult(Name));
             }
 
             return list;
