@@ -173,10 +173,10 @@ namespace MediaBrowser.Plugins.Anime.Providers.AniDB.Metadata
             var options = new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
-                Url = "http://anidb.net/api/animetitles.xml",
+                Url = "https://anidb.net/api/animetitles.xml",
                 CacheLength = TimeSpan.FromDays(7),
                 CacheMode = CacheMode.Unconditional,
-                UserAgent = "Emby/4.0"
+                EnableDefaultUserAgent = true
             };
 
             using (var stream = await _httpClient.Get(options).ConfigureAwait(false))
